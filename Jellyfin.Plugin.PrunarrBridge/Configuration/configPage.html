@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Prunarr Bridge</title>
+</head>
+<body>
+    <div id="PrunarrBridgeConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="PrunarrBridgeConfigForm">
+                    <div class="verticalSection">
+                        <h2>Prunarr Bridge Configuration</h2>
+                        <p>Configure the Prunarr Bridge plugin to manage "Leaving Soon" media items via symlinks.</p>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtApiKey">API Key:</label>
+                            <input id="txtApiKey" name="txtApiKey" type="text" is="emby-input" class="emby-input" />
+                            <div class="fieldDescription">
+                                API key for authenticating Prunarr requests. Generate a secure random key.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtSymlinkBasePath">Symlink Base Path:</label>
+                            <input id="txtSymlinkBasePath" name="txtSymlinkBasePath" type="text" is="emby-input" class="emby-input" />
+                            <div class="fieldDescription">
+                                Directory where symlinks for "Leaving Soon" items will be created. Default: /var/lib/jellyfin/leaving-soon
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtVirtualFolderName">Virtual Folder Name:</label>
+                            <input id="txtVirtualFolderName" name="txtVirtualFolderName" type="text" is="emby-input" class="emby-input" />
+                            <div class="fieldDescription">
+                                Name of the virtual folder/library for "Leaving Soon" items. Default: Leaving Soon
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <label class="checkboxContainer">
+                            <input id="chkAutoCreateVirtualFolder" name="chkAutoCreateVirtualFolder" type="checkbox" is="emby-checkbox" />
+                            <span>Auto-create Virtual Folder on startup</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Automatically create the "Leaving Soon" virtual folder when Jellyfin starts if it doesn't exist.
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var PrunarrBridgeConfigPage = {
+                pluginUniqueId: 'a8c0f8e4-7d3c-4b5a-9e2f-1a2b3c4d5e6f'
+            };
+
+            document.querySelector('#PrunarrBridgeConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(PrunarrBridgeConfigPage.pluginUniqueId).then(function (config) {
+                        document.querySelector('#txtApiKey').value = config.ApiKey || '';
+                        document.querySelector('#txtSymlinkBasePath').value = config.SymlinkBasePath || '/var/lib/jellyfin/leaving-soon';
+                        document.querySelector('#txtVirtualFolderName').value = config.VirtualFolderName || 'Leaving Soon';
+                        document.querySelector('#chkAutoCreateVirtualFolder').checked = config.AutoCreateVirtualFolder !== false;
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#PrunarrBridgeConfigForm')
+                .addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+
+                    ApiClient.getPluginConfiguration(PrunarrBridgeConfigPage.pluginUniqueId).then(function (config) {
+                        config.ApiKey = document.querySelector('#txtApiKey').value;
+                        config.SymlinkBasePath = document.querySelector('#txtSymlinkBasePath').value;
+                        config.VirtualFolderName = document.querySelector('#txtVirtualFolderName').value;
+                        config.AutoCreateVirtualFolder = document.querySelector('#chkAutoCreateVirtualFolder').checked;
+
+                        ApiClient.updatePluginConfiguration(PrunarrBridgeConfigPage.pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+
+                    return false;
+                });
+        </script>
+    </div>
+</body>
+</html>
