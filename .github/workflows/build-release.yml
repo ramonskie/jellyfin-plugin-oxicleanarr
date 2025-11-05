@@ -111,9 +111,9 @@ jobs:
     - name: Update manifest with JPRM
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        # Run JPRM to add this release to the manifest
-        # JPRM expects: jprm repo add <repo_directory> <plugin_metadata_file>
-        jprm repo add --plugin-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-prunarr-bridge.zip . build.yaml
+        # Run JPRM to add this release to the manifest using the local ZIP file
+        # This avoids timing issues with GitHub release file availability
+        jprm repo add --plugin-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-prunarr-bridge.zip --plugin-path jellyfin-plugin-prunarr-bridge.zip . build.yaml
         
     - name: Commit and push updated manifest
       if: startsWith(github.ref, 'refs/tags/')
