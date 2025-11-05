@@ -5,6 +5,7 @@ using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.PrunarrBridge.Services;
+using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -28,16 +29,16 @@ public class PrunarrController : ControllerBase
     /// Initializes a new instance of the <see cref="PrunarrController"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="symlinkManager">The symlink manager.</param>
-    /// <param name="virtualFolderManager">The virtual folder manager.</param>
+    /// <param name="libraryManager">The library manager.</param>
+    /// <param name="loggerFactory">The logger factory.</param>
     public PrunarrController(
-        ILogger<PrunarrController> logger,
-        SymlinkManager symlinkManager,
-        VirtualFolderManager virtualFolderManager)
+        ILogger<PrunarrController> _logger,
+        ILibraryManager libraryManager,
+        ILoggerFactory loggerFactory)
     {
-        _logger = logger;
-        _symlinkManager = symlinkManager;
-        _virtualFolderManager = virtualFolderManager;
+        this._logger = logger;
+        _symlinkManager = new SymlinkManager(loggerFactory.CreateLogger<SymlinkManager>(), libraryManager);
+        _virtualFolderManager = new VirtualFolderManager(loggerFactory.CreateLogger<VirtualFolderManager>(), libraryManager);
     }
 
     /// <summary>
