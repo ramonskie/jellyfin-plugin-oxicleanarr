@@ -34,6 +34,8 @@ jobs:
       run: |
         # Extract version from tag (remove 'v' prefix)
         VERSION="${GITHUB_REF_NAME#v}"
+        # Create artifacts directory
+        mkdir -p ./artifacts
         # Build plugin using JPRM (creates ZIP with metadata)
         # JPRM outputs the filename to stdout
         PLUGIN_FILE=$(jprm plugin build Jellyfin.Plugin.PrunarrBridge --output ./artifacts --version "$VERSION")
