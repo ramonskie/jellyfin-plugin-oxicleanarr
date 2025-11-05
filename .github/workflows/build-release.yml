@@ -22,20 +22,22 @@ jobs:
       with:
         dotnet-version: '9.0.x'
         
-    - name: Restore dependencies
-      run: dotnet restore Jellyfin.Plugin.PrunarrBridge/Jellyfin.Plugin.PrunarrBridge.csproj
+    - name: Setup Python for JPRM
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+        
+    - name: Install JPRM
+      run: pip install jprm
       
-    - name: Build plugin
-      run: dotnet build Jellyfin.Plugin.PrunarrBridge/Jellyfin.Plugin.PrunarrBridge.csproj --configuration Release --no-restore
-      
-    - name: Publish plugin
-      run: dotnet publish Jellyfin.Plugin.PrunarrBridge/Jellyfin.Plugin.PrunarrBridge.csproj --configuration Release --output ./artifacts --no-build
-      
-    - name: Create release package
+    - name: Build plugin with JPRM
       run: |
-        cd artifacts
-        zip -r ../jellyfin-plugin-prunarr-bridge.zip *.dll
-        cd ..
+        # Extract version from tag (remove 'v' prefix)
+        VERSION="${GITHUB_REF_NAME#v}"
+        # Build plugin using JPRM (creates ZIP with metadata)
+        jprm plugin build Jellyfin.Plugin.PrunarrBridge --output ./artifacts --version "$VERSION"
+        # Rename the output file to match our expected name
+        mv ./artifacts/prunarr-bridge_*.zip ./jellyfin-plugin-prunarr-bridge.zip
         
     - name: Generate checksums
       run: |
@@ -98,16 +100,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Setup Python for JPRM
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-        
-    - name: Install JPRM
-      if: startsWith(github.ref, 'refs/tags/')
-      run: pip install jprm
-      
     - name: Update manifest with JPRM
       if: startsWith(github.ref, 'refs/tags/')
       run: |

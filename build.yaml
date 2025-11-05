@@ -8,6 +8,10 @@ overview: "Bridge between Prunarr and Jellyfin for managing 'Leaving Soon' conte
 description: "Jellyfin plugin for Prunarr integration. Manages 'Leaving Soon' virtual folders via HTTP API, allowing Prunarr to display media approaching deletion without direct filesystem access."
 category: "General"
 owner: "prunarr"
+changelog: |
+  Version 1.0.3
+  - Updated to .NET 9.0 and Jellyfin 10.11.2
+  - Automated manifest updates with JPRM
 artifacts:
   - "Jellyfin.Plugin.PrunarrBridge.dll"
 build_type: "dotnet"
