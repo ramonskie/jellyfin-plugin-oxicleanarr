@@ -36,8 +36,14 @@ jobs:
         VERSION="${GITHUB_REF_NAME#v}"
         # Build plugin using JPRM (creates ZIP with metadata)
         # JPRM outputs the filename to stdout
-        PLUGIN_FILE=$(jprm plugin build Jellyfin.Plugin.PrunarrBridge --output ./artifacts --version "$VERSION")
-        echo "JPRM created: $PLUGIN_FILE"
+        PLUGIN_FILE=$(jprm plugin build . --output ./artifacts --version "$VERSION" 2>&1 | tee /dev/stderr | tail -1)
+        echo "JPRM build output: $PLUGIN_FILE"
+        # Check if file was created
+        if [ -z "$PLUGIN_FILE" ] || [ ! -f "$PLUGIN_FILE" ]; then
+          echo "Error: JPRM did not create expected output file"
+          ls -la ./artifacts/ || echo "artifacts directory does not exist"
+          exit 1
+        fi
         # Move to expected location
         mv "$PLUGIN_FILE" ./jellyfin-plugin-prunarr-bridge.zip
         
