@@ -2,8 +2,8 @@
     {
         "guid": "a8c0f8e4-7d3c-4b5a-9e2f-1a2b3c4d5e6f",
         "name": "Prunarr Bridge",
-        "description": "Jellyfin plugin for Prunarr integration. Manages 'Leaving Soon' virtual folders via HTTP API, allowing Prunarr to display media approaching deletion without direct filesystem access.",
-        "overview": "Bridge between Prunarr and Jellyfin for managing 'Leaving Soon' content",
+        "description": "Jellyfin plugin for Prunarr integration. Manages symlinks via HTTP API. v2.0+ uses simplified design: symlink management only, no library management.",
+        "overview": "Bridge between Prunarr and Jellyfin for managing symlinks",
         "owner": "prunarr",
         "category": "General",
         "imageUrl": "https://raw.githubusercontent.com/ramonskie/jellyfin-plugin-prunarr-bridge/main/images/icon.svg",
