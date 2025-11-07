@@ -1,129 +1,148 @@
-# Jellyfin Integration POC for Prunarr
+# Jellyfin Plugin for Prunarr
 
-This repository contains proof-of-concept implementations for integrating Prunarr with Jellyfin to manage "Leaving Soon" media visibility through symlinks and Virtual Folders.
+A native Jellyfin plugin that enables Prunarr to manage "Leaving Soon" media visibility through symlinks via HTTP API.
 
 ## Problem
 
-Prunarr currently requires direct filesystem access to:
-1. Create symlinks to media files that are approaching deletion
-2. Manage Jellyfin's Virtual Folders to display "Leaving Soon" content
-
-This creates deployment complexity with Docker volume mappings and path translation issues.
+Prunarr currently requires direct filesystem access to create symlinks to media files that are approaching deletion. This creates deployment complexity with Docker volume mappings and path translation issues.
 
 ## Solution
 
-Move symlink and Virtual Folder management into Jellyfin's filesystem context, exposing HTTP APIs that Prunarr can call.
+This Jellyfin plugin moves symlink management into Jellyfin's filesystem context, exposing HTTP APIs that Prunarr can call. The plugin follows the Single Responsibility Principle: it **only manages symlinks**. Library management and scanning remain the responsibility of Prunarr.
 
-## Two Approaches Implemented
+## Features
 
-### 1. C# Server Plugin (Jellyfin.Plugin.PrunarrBridge)
+- Native Jellyfin plugin with direct filesystem access
+- Exposes REST endpoints on Jellyfin's port (no additional containers needed)
+- **Minimal scope:** Only manages symlinks (create, remove, list)
+- Completely stateless - all paths provided via API requests
+- Uses Jellyfin's built-in authentication
+- Prunarr handles library management and scanning
 
-A native Jellyfin plugin that runs inside Jellyfin's process.
+## Installation
 
-**Location**: `Jellyfin.Plugin.PrunarrBridge/`
+### Easy Installation (Recommended)
 
-**Key Features**:
-- Native Jellyfin plugin using internal APIs
-- Direct access to `ILibraryManager` for Virtual Folders
-- Exposes REST endpoints on Jellyfin's port
-- No additional containers needed
+Add the plugin repository to Jellyfin:
 
-**Installation**: See [INSTALLATION.md](INSTALLATION.md)
+1. Open Jellyfin → **Dashboard** → **Plugins** → **Repositories**
+2. Click **"+"** to add a repository
+3. Enter:
+   - **Repository Name**: `Prunarr Plugin Repository`
+   - **Repository URL**: `https://raw.githubusercontent.com/YOUR_USERNAME/jellyfin-plugin-prunarr-bridge/main/manifest.json`
+4. Click **Save**
+5. Go to **Dashboard** → **Plugins** → **Catalog**
+6. Find "Prunarr Bridge" and click **Install**
+7. Restart Jellyfin when prompted
 
-### 2. Go Sidecar Service (Recommended)
+### Manual Installation
 
-An independent Go service that communicates with Jellyfin via REST API.
+See [INSTALLATION.md](INSTALLATION.md) for manual installation instructions.
 
-**Location**: `jellyfin-sidecar/`
+**API Documentation**: See [API.md](API.md)
 
-**Key Features**:
-- Standalone Docker container
-- Uses Jellyfin's public REST API
-- Independent deployment and updates
-- Easy monitoring and debugging
+## Design Philosophy (v2.0+)
 
-**Installation**: See [INSTALLATION_SIDECAR.md](INSTALLATION_SIDECAR.md)
+The plugin follows the **Single Responsibility Principle**:
 
-## Quick Start (Go Sidecar - Recommended)
+**Plugin Responsibilities:**
+- ✅ Create symlinks
+- ✅ Remove symlinks
+- ✅ List symlinks
+- ✅ Health check
+
+**Prunarr Responsibilities:**
+- ✅ Create/manage Jellyfin libraries
+- ✅ Trigger library scans
+- ✅ Orchestrate workflow
+- ✅ Business logic
+
+## Quick Start
 
 ```bash
-# 1. Copy example configuration
-cp jellyfin-sidecar/config.example.json jellyfin-sidecar/config.json
+# 1. Add plugin repository to Jellyfin
+# Dashboard → Plugins → Repositories → Add
+# URL: https://raw.githubusercontent.com/YOUR_USERNAME/jellyfin-plugin-prunarr-bridge/main/manifest.json
 
-# 2. Edit configuration with your Jellyfin API key
-nano jellyfin-sidecar/config.json
+# 2. Install plugin from catalog
+# Dashboard → Plugins → Catalog → Find "Prunarr Bridge" → Install
 
-# 3. Update docker-compose.yml with your media paths
-nano docker-compose.yml
+# 3. Restart Jellyfin
 
-# 4. Start services
-docker-compose up -d
+# 4. No plugin configuration needed!
+# The plugin is completely stateless - all paths are provided via API
 
-# 5. Test the service
-curl http://localhost:8090/health
+# 5. Create a library in Jellyfin (one-time setup)
+# Dashboard → Libraries → Add Media Library
+# Name: Leaving Soon
+# Folder: /data/leaving-soon
+# Content type: Movies (or Mixed)
+
+# 6. Test the API
+./tests/test-api.sh
 ```
+
+For manual installation from source, see [INSTALLATION.md](INSTALLATION.md).
 
 ## API Endpoints
 
-Both implementations expose the same REST API:
+Complete API documentation: [API.md](API.md)
 
-### Add Items to "Leaving Soon"
+### Health Check
 ```bash
-POST /api/leaving-soon/add
+GET /api/prunarr/status
+```
+
+### Create Symlinks
+```bash
+POST /api/prunarr/symlinks/add
 Content-Type: application/json
-X-API-Key: your-api-key
+X-Emby-Token: your-jellyfin-api-token
 
 {
   "items": [
     {
-      "source_path": "/media/movies/Movie (2023)/Movie (2023).mkv",
-      "deletion_date": "2024-12-31T00:00:00Z"
+      "sourcePath": "/media/movies/Movie (2023)/Movie (2023).mkv",
+      "targetDirectory": "/data/leaving-soon"
     }
   ]
 }
 ```
 
-### Remove Items
+### Remove Symlinks
 ```bash
-POST /api/leaving-soon/remove
+POST /api/prunarr/symlinks/remove
 Content-Type: application/json
-X-API-Key: your-api-key
+X-Emby-Token: your-jellyfin-api-token
 
 {
-  "symlink_paths": ["/data/leaving-soon/Movie (2023)"]
+  "symlinkPaths": ["/data/leaving-soon/Movie (2023).mkv"]
 }
 ```
 
-### Clear All Items
+### List Symlinks
 ```bash
-POST /api/leaving-soon/clear
-X-API-Key: your-api-key
+GET /api/prunarr/symlinks/list?directory=/data/leaving-soon
+X-Emby-Token: your-jellyfin-api-token
 ```
 
-### Get Status
-```bash
-GET /api/status
-X-API-Key: your-api-key
-```
+**Authentication**: Uses Jellyfin's built-in authentication. Use any valid Jellyfin API token with the `X-Emby-Token` header.
 
 ## Documentation
 
-- **[FEASIBILITY_REPORT.md](FEASIBILITY_REPORT.md)** - Comprehensive comparison and recommendation
-- **[INSTALLATION.md](INSTALLATION.md)** - C# plugin installation guide
-- **[INSTALLATION_SIDECAR.md](INSTALLATION_SIDECAR.md)** - Go sidecar installation guide
+- **[API.md](API.md)** - Complete API documentation and integration guide
+- **[INSTALLATION.md](INSTALLATION.md)** - Plugin installation guide
+- **[tests/QUICKSTART_TEST.md](tests/QUICKSTART_TEST.md)** - Quick testing guide
+- **[tests/TEST_GUIDE.md](tests/TEST_GUIDE.md)** - Detailed testing documentation
 
-## Recommendation
+## Benefits
 
-**Use the Go Sidecar Service** for most deployments.
-
-The feasibility report recommends the Go sidecar approach because it:
-- ✅ Easier to deploy (Docker-based)
-- ✅ Easier to maintain (independent updates)
-- ✅ Easier to debug (separate logs)
-- ✅ Safer (isolated failure domain)
-- ✅ More future-proof (uses stable public APIs)
-
-See [FEASIBILITY_REPORT.md](FEASIBILITY_REPORT.md) for detailed analysis.
+- ✅ Direct filesystem access (no path translation needed)
+- ✅ Native Jellyfin integration
+- ✅ Simple deployment (no extra containers)
+- ✅ Minimal, focused scope (symlinks only)
+- ✅ Completely stateless (no configuration required)
+- ✅ Production-ready with comprehensive testing
 
 ## Project Structure
 
@@ -133,71 +152,57 @@ See [FEASIBILITY_REPORT.md](FEASIBILITY_REPORT.md) for detailed analysis.
 │   ├── Api/
 │   │   └── PrunarrController.cs      # REST API endpoints
 │   ├── Configuration/
+│   │   ├── configPage.html           # Configuration UI
 │   │   └── PluginConfiguration.cs    # Plugin settings
 │   ├── Services/
-│   │   ├── SymlinkManager.cs         # Symlink operations
-│   │   └── VirtualFolderManager.cs   # Virtual Folder management
+│   │   └── SymlinkManager.cs         # Symlink operations
 │   ├── Plugin.cs                     # Plugin entry point
-│   └── PluginServiceRegistrator.cs   # Dependency injection
+│   └── build.yaml                    # JPRM build config
 │
-├── jellyfin-sidecar/                 # Go Sidecar Service
-│   ├── cmd/
-│   │   └── main.go                   # Entry point
-│   ├── internal/
-│   │   ├── api/
-│   │   │   └── server.go             # HTTP API server
-│   │   ├── config/
-│   │   │   └── config.go             # Configuration
-│   │   ├── jellyfin/
-│   │   │   └── client.go             # Jellyfin API client
-│   │   └── symlink/
-│   │       └── manager.go            # Symlink operations
-│   ├── Dockerfile                    # Container image
-│   ├── config.example.json           # Example configuration
-│   └── go.mod                        # Go module definition
+├── tests/                            # Test suite
+│   ├── docker-compose.yml            # Test environment
+│   ├── test-api.sh                   # API test script
+│   ├── test-plugin.sh                # Plugin test script
+│   ├── QUICKSTART_TEST.md            # Quick test guide
+│   └── TEST_GUIDE.md                 # Detailed testing docs
 │
-├── docker-compose.yml                # Example deployment
-├── FEASIBILITY_REPORT.md             # Comparative analysis
-├── INSTALLATION.md                   # C# plugin guide
-├── INSTALLATION_SIDECAR.md           # Go sidecar guide
+├── API.md                            # API documentation
+├── INSTALLATION.md                   # Installation guide
+├── PLUGIN_REPOSITORY_SETUP.md        # Plugin repository setup
+├── manifest.json                     # Plugin manifest
 └── README.md                         # This file
 ```
 
 ## Development Status
 
-- ✅ C# Plugin - Complete POC
-- ✅ Go Sidecar - Complete POC
-- ✅ Documentation - Complete
+- ✅ Plugin v2.0 - Complete (symlink-only design)
+- ✅ Comprehensive API documentation
+- ✅ Test suite with automated scripts
+- ✅ Production-ready
 - ⏳ Integration with Prunarr - Pending
-- ⏳ Docker Hub publication - Pending
 - ⏳ Community testing - Pending
 
 ## Requirements
 
-### For C# Plugin
-- .NET SDK 7.0+
-- Jellyfin 10.8.0+
+- .NET SDK 9.0+
+- Jellyfin 10.11.0+
+- Linux/macOS (Windows requires admin privileges for symlinks)
 - Access to Jellyfin's plugin directory
-
-### For Go Sidecar
-- Docker and Docker Compose (recommended)
-- OR Go 1.21+ for building from source
-- Jellyfin server with API access
 
 ## Contributing
 
 This is a proof-of-concept for evaluating integration approaches. Once the recommended approach is selected and integrated into Prunarr, contributions will be welcome.
 
-## Architecture Diagrams
+## Architecture
 
-### Current Prunarr Architecture (Problem)
+### Before: Direct Filesystem Access (Problem)
 ```
 ┌─────────┐     Volume     ┌──────────┐
 │ Prunarr │────Mapping─────│ Jellyfin │
 └─────────┘                └──────────┘
      │                           │
      │ Create symlinks           │
-     │ Path translation          │
+     │ Path translation issues   │
      └──────────┬────────────────┘
                 │
          ┌──────▼──────┐
@@ -206,19 +211,23 @@ This is a proof-of-concept for evaluating integration approaches. Once the recom
          └─────────────┘
 ```
 
-### Proposed Architecture (Solution)
+### After: Plugin API (Solution)
 ```
-┌─────────┐    HTTP API    ┌──────────────┐    Jellyfin API    ┌──────────┐
-│ Prunarr │───────────────▶│   Sidecar    │───────────────────▶│ Jellyfin │
-└─────────┘                └──────────────┘                     └──────────┘
-                                  │                                   │
-                                  │ Shared Volume                     │
-                                  └───────────┬───────────────────────┘
-                                              │
-                                       ┌──────▼──────┐
-                                       │  Symlinks   │
-                                       │  Directory  │
-                                       └─────────────┘
+┌─────────┐   HTTP API   ┌──────────────────┐
+│ Prunarr │─────────────▶│ Jellyfin Plugin  │
+└─────────┘              └──────────────────┘
+     │                           │
+     │                           │ Create symlinks
+     │                           │ (native filesystem access)
+     │ Create libraries          │
+     │ Trigger scans             │
+     │                           │
+     └──────────┬────────────────┘
+                │
+         ┌──────▼──────┐
+         │  Symlinks   │
+         │  Directory  │
+         └─────────────┘
 ```
 
 ## License
@@ -233,14 +242,14 @@ This is a proof-of-concept project. License to be determined when integrated int
 ## Support
 
 For questions or issues:
-1. Review the [FEASIBILITY_REPORT.md](FEASIBILITY_REPORT.md)
-2. Check installation guides
-3. Review troubleshooting sections in installation docs
+1. Review the [API.md](API.md) documentation
+2. Check [INSTALLATION.md](INSTALLATION.md) for setup help
+3. Review [tests/TEST_GUIDE.md](tests/TEST_GUIDE.md) for troubleshooting
+4. Check plugin logs in Jellyfin
 
 ## Next Steps
 
-1. **Integration**: Integrate Go sidecar into Prunarr codebase
+1. **Integration**: Integrate plugin into Prunarr codebase
 2. **Testing**: End-to-end testing with real Jellyfin instances
-3. **Distribution**: Publish Docker image to Docker Hub
-4. **Documentation**: Update Prunarr docs with new deployment method
-5. **Community**: Beta testing with Prunarr users
+3. **Documentation**: Update Prunarr docs with new deployment method
+4. **Community**: Beta testing with Prunarr users

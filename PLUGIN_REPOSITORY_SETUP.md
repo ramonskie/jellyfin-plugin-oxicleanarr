@@ -2,9 +2,16 @@
 
 This guide explains how to set up a Jellyfin plugin repository so users can install the Prunarr Bridge plugin directly from Jellyfin's plugin catalog.
 
+> **Note for Plugin Maintainers**: This setup is required to enable the easy installation method described in README.md. Once configured, users can install the plugin by simply adding your repository URL to Jellyfin.
+
 ## Overview
 
 Jellyfin uses a repository system for plugins. A repository is simply a JSON manifest file hosted on a web server (typically GitHub) that describes available plugins and their versions.
+
+Once set up, users can install your plugin by adding this URL to Jellyfin:
+```
+https://raw.githubusercontent.com/YOUR_USERNAME/jellyfin-plugin-prunarr-bridge/main/manifest.json
+```
 
 ## Repository Structure
 

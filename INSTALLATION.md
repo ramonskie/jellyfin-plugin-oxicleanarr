@@ -1,10 +1,10 @@
-# Installation Guide: Jellyfin C# Plugin for Prunarr
+# Installation Guide: Jellyfin Plugin for Prunarr
 
-This guide explains how to install and configure the Jellyfin.Plugin.PrunarrBridge C# plugin.
+This guide explains how to install and configure the Jellyfin.Plugin.PrunarrBridge plugin.
 
 ## Overview
 
-The C# plugin approach embeds the symlink management functionality directly into Jellyfin as a native plugin. This eliminates the need for a separate sidecar container but requires building and installing a C# .NET plugin.
+This native Jellyfin plugin embeds symlink management functionality directly into Jellyfin. No additional containers are required - the plugin runs inside Jellyfin's process and exposes REST endpoints on Jellyfin's port.
 
 ## Prerequisites
 
@@ -89,44 +89,24 @@ bin/Release/net7.0/Jellyfin.Plugin.PrunarrBridge.dll
 
 ## Configuration
 
-### 1. Access Plugin Settings
+### No Configuration Required! (v2.0+)
+
+The plugin is **completely stateless** and requires no configuration. All paths are provided via API requests.
+
+### Verify Installation
 
 1. Log into Jellyfin as an administrator
 2. Navigate to **Dashboard** → **Plugins**
-3. Find **Prunarr Bridge** in the plugin list
-4. Click on it to access settings
+3. Find **Prunarr Bridge** in the plugin list to confirm it's loaded
 
-### 2. Configure Plugin Settings
+Check Jellyfin logs for any errors:
+```bash
+# Docker
+docker logs jellyfin
 
-Configure the following settings:
-
-- **Symlink Base Path**: Directory where symlinks will be created (e.g., `/data/leaving-soon`)
-  - This path must be accessible by Jellyfin
-  - Jellyfin must have write permissions
-  
-- **Virtual Folder Name**: Name of the Virtual Folder (default: "Leaving Soon")
-  - This will appear as a library in Jellyfin
-  
-- **Collection Type**: Type of media collection
-  - `movies`: For movies only
-  - `tvshows`: For TV shows only
-  - `mixed`: For both (default)
-
-- **API Key**: Secret key for authenticating Prunarr requests
-  - Generate a secure random string
-  - This will be used by Prunarr to authenticate
-
-### 3. Save and Verify
-
-1. Click **Save** to apply settings
-2. Check Jellyfin logs for any errors:
-   ```bash
-   # Docker
-   docker logs jellyfin
-   
-   # Systemd
-   journalctl -u jellyfin -f
-   ```
+# Systemd
+journalctl -u jellyfin -f
+```
 
 ## Integration with Prunarr
 
@@ -137,28 +117,49 @@ Update Prunarr's configuration to point to the plugin endpoints:
 **Base URL**: `http://jellyfin:8096/api/prunarr` (or your Jellyfin URL)
 
 **API Endpoints**:
-- Add items: `POST /api/prunarr/leaving-soon/add`
-- Remove items: `POST /api/prunarr/leaving-soon/remove`
-- Clear all: `POST /api/prunarr/leaving-soon/clear`
+- Add symlinks: `POST /api/prunarr/symlinks/add`
+- Remove symlinks: `POST /api/prunarr/symlinks/remove`
+- List symlinks: `GET /api/prunarr/symlinks/list?directory=<path>`
 - Status: `GET /api/prunarr/status`
 
-**Authentication**: Include the API key in the `X-API-Key` header
+**Authentication**: Use Jellyfin's built-in authentication with `X-Emby-Token` header
 
-### Example API Request
+### Example API Requests
 
+**Create Symlinks:**
 ```bash
-curl -X POST http://jellyfin:8096/api/prunarr/leaving-soon/add \
+curl -X POST http://jellyfin:8096/api/prunarr/symlinks/add \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key-here" \
+  -H "X-Emby-Token: your-jellyfin-api-token" \
   -d '{
     "items": [
       {
-        "source_path": "/media/movies/Movie (2023)/Movie (2023).mkv",
-        "deletion_date": "2024-12-31T00:00:00Z"
+        "sourcePath": "/media/movies/Movie (2023)/Movie (2023).mkv",
+        "targetDirectory": "/data/leaving-soon"
       }
     ]
   }'
 ```
+
+**List Symlinks:**
+```bash
+curl "http://jellyfin:8096/api/prunarr/symlinks/list?directory=/data/leaving-soon" \
+  -H "X-Emby-Token: your-jellyfin-api-token"
+```
+
+**Remove Symlinks:**
+```bash
+curl -X POST http://jellyfin:8096/api/prunarr/symlinks/remove \
+  -H "Content-Type: application/json" \
+  -H "X-Emby-Token: your-jellyfin-api-token" \
+  -d '{
+    "symlinkPaths": [
+      "/data/leaving-soon/Movie (2023).mkv"
+    ]
+  }'
+```
+
+For complete API documentation, see [API.md](API.md).
 
 ## Volume Mapping Considerations
 
@@ -179,47 +180,76 @@ services:
       - leaving-soon-data:/data/leaving-soon
 ```
 
-**Important**: The symlink base path in the plugin configuration must match the path as Jellyfin sees it inside the container (e.g., `/data/leaving-soon`, not the host path).
+**Important**: The target directory paths in API requests must match the path as Jellyfin sees it inside the container (e.g., `/data/leaving-soon`, not the host path).
 
 ## Verification
 
 ### 1. Check Plugin Status
 
 ```bash
-curl http://jellyfin:8096/api/prunarr/status \
-  -H "X-API-Key: your-api-key-here"
+curl http://jellyfin:8096/api/prunarr/status
 ```
 
 Expected response:
 ```json
 {
-  "version": "1.0.0",
-  "symlink_base_path": "/data/leaving-soon",
-  "virtual_folder_name": "Leaving Soon",
-  "jellyfin_connected": true
+  "Version": "2.0.0.0"
 }
 ```
 
-### 2. Test Adding an Item
+### 2. Create Jellyfin API Token
+
+The plugin uses Jellyfin's built-in authentication:
+
+1. Go to **Dashboard** → **API Keys**
+2. Click **+** to create a new API key
+3. Give it a name (e.g., "Prunarr")
+4. Copy the generated token
+
+### 3. Test Adding a Symlink
 
 ```bash
-curl -X POST http://jellyfin:8096/api/prunarr/leaving-soon/add \
+curl -X POST http://jellyfin:8096/api/prunarr/symlinks/add \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key-here" \
+  -H "X-Emby-Token: your-token-here" \
   -d '{
     "items": [
       {
-        "source_path": "/media/movies/TestMovie/TestMovie.mkv"
+        "sourcePath": "/media/movies/TestMovie/TestMovie.mkv",
+        "targetDirectory": "/data/leaving-soon"
       }
     ]
   }'
 ```
 
-### 3. Verify in Jellyfin
+Expected response:
+```json
+{
+  "Success": true,
+  "CreatedSymlinks": ["/data/leaving-soon/TestMovie.mkv"],
+  "Errors": []
+}
+```
 
-1. Navigate to **Jellyfin** → **Libraries**
-2. You should see the "Leaving Soon" library
-3. The test movie should appear there
+### 4. Verify Symlink Creation
+
+Check that the symlink was created:
+```bash
+ls -lah /data/leaving-soon/
+```
+
+### 5. Create Library in Jellyfin (One-Time)
+
+The plugin does NOT create libraries. You or Prunarr must create the library:
+
+1. Navigate to **Dashboard** → **Libraries**
+2. Click **Add Media Library**
+3. Name: "Leaving Soon" (or your choice)
+4. Content type: Movies (or Mixed)
+5. Add folder: `/data/leaving-soon`
+6. Save
+
+After creating the library, trigger a scan to see the symlinked media.
 
 ## Troubleshooting
 
@@ -236,17 +266,18 @@ curl -X POST http://jellyfin:8096/api/prunarr/leaving-soon/add \
 - Check that source paths exist and are accessible
 - Ensure paths use the correct format (as seen by Jellyfin)
 
-### Virtual Folder Not Created
+### Library Not Showing Symlinked Media
 
-- Check Jellyfin logs for ILibraryManager errors
-- Verify the symlink base path exists
-- Ensure Jellyfin has scan permissions
+- Ensure you created the library in Jellyfin pointing to the target directory
+- Trigger a library scan after creating symlinks
+- Check that the symlinks are valid and point to existing files
+- Verify Jellyfin has read permissions on the symlinked files
 
 ### API Authentication Fails
 
-- Verify the API key matches in both plugin config and Prunarr
-- Check that the `X-API-Key` header is being sent
-- Try using the query parameter: `?api_key=your-key`
+- Verify you're using a valid Jellyfin API token
+- Check that the `X-Emby-Token` header is being sent correctly
+- Ensure the token hasn't been deleted in Jellyfin's API Keys section
 
 ## Uninstallation
 
@@ -259,20 +290,18 @@ To remove the plugin:
 
 2. Restart Jellyfin
 
-3. Optionally, remove the "Leaving Soon" Virtual Folder from Jellyfin's UI
+3. Optionally, remove any libraries you created for symlinked media from Jellyfin's UI
 
-## Advantages of the Plugin Approach
+## Key Features
 
-- **No additional container**: Runs directly in Jellyfin's process
-- **Direct API access**: Uses internal ILibraryManager APIs
-- **Simpler deployment**: One less service to manage
-- **Native integration**: Appears as a standard Jellyfin plugin
+- **No additional containers**: Runs directly in Jellyfin's process
+- **Native integration**: Standard Jellyfin plugin with REST API
+- **Stateless design**: No configuration required (v2.0+)
+- **Simple deployment**: One less service to manage
+- **Direct filesystem access**: Native symlink creation
 
-## Disadvantages
+## Important Notes
 
-- **Requires building**: Must compile C# code
-- **Jellyfin restarts**: Updates require restarting Jellyfin
-- **Debugging complexity**: Harder to debug than standalone service
-- **Version coupling**: Plugin must be compatible with Jellyfin version
-
-For a comparison with the Go sidecar approach, see `FEASIBILITY_REPORT.md`.
+- **Requires building**: Must compile C# code (requires .NET SDK)
+- **Updates require restart**: Plugin updates need Jellyfin restart
+- **Version compatibility**: Plugin must be compatible with Jellyfin version (10.8.0+)
