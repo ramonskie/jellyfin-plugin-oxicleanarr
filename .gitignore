@@ -20,10 +20,6 @@ artifacts/
 .idea/
 *.sln.DotSettings.user
 
-# Go build outputs
-jellyfin-sidecar/jellyfin-sidecar
-jellyfin-sidecar/dist/
-
 # macOS
 .DS_Store
 
@@ -37,3 +33,9 @@ jellyfin-sidecar/dist/
 *.env
 config.json
 !config.example.json
+
+# Test runtime directories
+tests/jellyfin-cache/
+tests/jellyfin-config/
+tests/test-media/
+tests/leaving-soon-data/
