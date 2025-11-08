@@ -171,6 +171,7 @@ public class OxiCleanarrController : ControllerBase
     /// </summary>
     /// <returns>Plugin status.</returns>
     [HttpGet("status")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<StatusResponse> GetStatus()
     {
