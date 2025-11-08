@@ -53,32 +53,22 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install JPRM
-        run: pip install jprm
-
-      - name: Build plugin
+      - name: Build plugin in Release mode
         run: dotnet build --configuration Release Jellyfin.Plugin.OxiCleanarr/Jellyfin.Plugin.OxiCleanarr.csproj
 
-      - name: Package with JPRM
-        run: jprm --verbosity=debug plugin build Jellyfin.Plugin.OxiCleanarr --output=artifacts --version=0.0.0
+      - name: Publish plugin
+        run: dotnet publish --configuration Release --output=artifacts Jellyfin.Plugin.OxiCleanarr/Jellyfin.Plugin.OxiCleanarr.csproj
 
-      - name: Verify artifact exists
+      - name: Verify DLL exists
         run: |
-          ls -la artifacts/
-          # JPRM creates filename from plugin name in build.yaml (oxicleanarr-bridge)
-          if [ ! -f artifacts/oxicleanarr-bridge_0.0.0.0.zip ]; then
-            echo "ERROR: Package artifact not created"
+          if [ ! -f artifacts/Jellyfin.Plugin.OxiCleanarr.dll ]; then
+            echo "ERROR: Plugin DLL not created"
             exit 1
           fi
-          echo "Package created successfully"
+          echo "Plugin built and published successfully"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: oxicleanarr-bridge-test
-          path: artifacts/*.zip
+          path: artifacts/Jellyfin.Plugin.OxiCleanarr.dll
