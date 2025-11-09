@@ -154,21 +154,16 @@ public class OxiCleanarrController : ControllerBase
         try
         {
             var symlinks = _symlinkManager.ListSymlinks(directory);
-            string message;
-            if (symlinks.Length == 0)
-            {
-                message = "No symlinks found in directory";
-            }
-            else
-            {
-                var symlinkNames = string.Join(", ", symlinks.Select(s => s.Name));
-                message = $"Found {symlinks.Length} symlink(s): {symlinkNames}";
-            }
+            var symlinkNames = symlinks.Select(s => s.Name).ToArray();
+            string message = symlinks.Length == 0 
+                ? "No symlinks found in directory" 
+                : $"Found {symlinks.Length} symlink(s)";
 
             return Ok(new ListSymlinksResponse
             {
                 Symlinks = symlinks,
                 Count = symlinks.Length,
+                SymlinkNames = symlinkNames,
                 Message = message
             });
         }
@@ -389,6 +384,11 @@ public class ListSymlinksResponse
     /// Gets or sets the count of symlinks.
     /// </summary>
     public int Count { get; set; }
+
+    /// <summary>
+    /// Gets or sets the array of symlink names for easy parsing.
+    /// </summary>
+    public string[] SymlinkNames { get; set; } = Array.Empty<string>();
 
     /// <summary>
     /// Gets or sets a message describing the result.

@@ -203,16 +203,29 @@ List all symlinks in a specified directory.
     }
   ],
   "Count": 1,
-  "Message": "Found 1 symlink(s): movie.mkv"
+  "SymlinkNames": ["movie.mkv"],
+  "Message": "Found 1 symlink(s)"
 }
 ```
 
 **Response (multiple symlinks):**
 ```json
 {
-  "Symlinks": [...],
-  "Count": 3,
-  "Message": "Found 3 symlink(s): movie1.mkv, movie2.mkv, movie3.mkv"
+  "Symlinks": [
+    {
+      "Path": "/data/leaving-soon/movie1.mkv",
+      "Target": "/media/movies/Movie1 (2024)/movie1.mkv",
+      "Name": "movie1.mkv"
+    },
+    {
+      "Path": "/data/leaving-soon/movie2.mkv",
+      "Target": "/media/movies/Movie2 (2024)/movie2.mkv",
+      "Name": "movie2.mkv"
+    }
+  ],
+  "Count": 2,
+  "SymlinkNames": ["movie1.mkv", "movie2.mkv"],
+  "Message": "Found 2 symlink(s)"
 }
 ```
 
@@ -221,6 +234,7 @@ List all symlinks in a specified directory.
 {
   "Symlinks": [],
   "Count": 0,
+  "SymlinkNames": [],
   "Message": "No symlinks found in directory"
 }
 ```
@@ -241,6 +255,8 @@ curl "http://localhost:8096/api/oxicleanarr/symlinks/list?directory=/data/leavin
 - **directory** parameter is required - OxiCleanarr specifies which directory to list
 - Only returns actual symlinks (not regular files)
 - Returns empty array if directory doesn't exist or is empty
+- **SymlinkNames** provides a convenient array of just the filenames for easy client parsing
+- **Symlinks** provides full details (Path, Target, Name) for each symlink
 - Useful for OxiCleanarr to verify current state
 
 ---
