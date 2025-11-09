@@ -27,6 +27,29 @@ public class SymlinkManager
     }
 
     /// <summary>
+    /// Ensures a directory exists, creating it if necessary.
+    /// </summary>
+    /// <param name="directoryPath">The directory path to ensure exists.</param>
+    /// <returns>True if directory was created, false if it already existed.</returns>
+    public bool EnsureDirectoryExists(string directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new ArgumentException("Directory path cannot be empty", nameof(directoryPath));
+        }
+
+        if (Directory.Exists(directoryPath))
+        {
+            _logger.LogDebug("Directory already exists: {Directory}", directoryPath);
+            return false;
+        }
+
+        _logger.LogInformation("Creating directory: {Directory}", directoryPath);
+        Directory.CreateDirectory(directoryPath);
+        return true;
+    }
+
+    /// <summary>
     /// Creates a symlink to a media item.
     /// </summary>
     /// <param name="sourcePath">The source media file path.</param>
@@ -41,11 +64,8 @@ public class SymlinkManager
             throw new FileNotFoundException($"Source file not found: {sourcePath}");
         }
 
-        if (!Directory.Exists(targetDirectory))
-        {
-            _logger.LogInformation("Creating target directory: {Directory}", targetDirectory);
-            Directory.CreateDirectory(targetDirectory);
-        }
+        // Ensure target directory exists (fallback behavior)
+        EnsureDirectoryExists(targetDirectory);
 
         var fileName = Path.GetFileName(sourcePath);
         var symlinkPath = Path.Combine(targetDirectory, fileName);
@@ -87,6 +107,39 @@ public class SymlinkManager
 
         _logger.LogInformation("Removing symlink: {Path}", symlinkPath);
         File.Delete(symlinkPath);
+    }
+
+    /// <summary>
+    /// Removes a directory if it exists.
+    /// </summary>
+    /// <param name="directoryPath">The directory path to remove.</param>
+    /// <param name="force">If true, removes directory even if not empty. If false, only removes if empty.</param>
+    /// <exception cref="InvalidOperationException">Thrown when directory is not empty and force is false.</exception>
+    public void RemoveDirectory(string directoryPath, bool force = false)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new ArgumentException("Directory path cannot be empty", nameof(directoryPath));
+        }
+
+        if (!Directory.Exists(directoryPath))
+        {
+            _logger.LogWarning("Directory does not exist: {Directory}", directoryPath);
+            return;
+        }
+
+        // Check if directory is empty
+        var files = Directory.GetFiles(directoryPath);
+        var directories = Directory.GetDirectories(directoryPath);
+        var hasContent = files.Length > 0 || directories.Length > 0;
+
+        if (hasContent && !force)
+        {
+            throw new InvalidOperationException($"Directory is not empty: {directoryPath}. Use force=true to remove anyway.");
+        }
+
+        _logger.LogInformation("Removing directory: {Directory} (force={Force}, hasContent={HasContent})", directoryPath, force, hasContent);
+        Directory.Delete(directoryPath, recursive: force);
     }
 
     /// <summary>

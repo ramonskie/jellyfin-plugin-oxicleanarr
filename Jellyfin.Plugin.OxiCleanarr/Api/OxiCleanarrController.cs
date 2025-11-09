@@ -167,6 +167,84 @@ public class OxiCleanarrController : ControllerBase
     }
 
     /// <summary>
+    /// Creates a directory.
+    /// </summary>
+    /// <param name="request">The request containing the directory path.</param>
+    /// <returns>Success response.</returns>
+    [HttpPost("directories/create")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public ActionResult<CreateDirectoryResponse> CreateDirectory([FromBody] CreateDirectoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Directory))
+        {
+            return BadRequest(new { error = "Directory path is required" });
+        }
+
+        _logger.LogInformation("Received request to create directory: {Directory}", request.Directory);
+
+        try
+        {
+            var created = _symlinkManager.EnsureDirectoryExists(request.Directory);
+            return Ok(new CreateDirectoryResponse
+            {
+                Success = true,
+                Directory = request.Directory,
+                Created = created,
+                Message = created ? "Directory created successfully" : "Directory already exists"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create directory: {Directory}", request.Directory);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Removes a directory.
+    /// </summary>
+    /// <param name="request">The request containing the directory path and force flag.</param>
+    /// <returns>Success response.</returns>
+    [HttpDelete("directories/remove")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public ActionResult<RemoveDirectoryResponse> RemoveDirectory([FromBody] RemoveDirectoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Directory))
+        {
+            return BadRequest(new { error = "Directory path is required" });
+        }
+
+        _logger.LogInformation("Received request to remove directory: {Directory} (force={Force})", request.Directory, request.Force);
+
+        try
+        {
+            _symlinkManager.RemoveDirectory(request.Directory, request.Force);
+            return Ok(new RemoveDirectoryResponse
+            {
+                Success = true,
+                Directory = request.Directory,
+                Message = "Directory removed successfully"
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Cannot remove non-empty directory: {Directory}", request.Directory);
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove directory: {Directory}", request.Directory);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gets plugin status and version.
     /// </summary>
     /// <returns>Plugin status.</returns>
@@ -298,6 +376,82 @@ public class ListSymlinksResponse
     /// Gets or sets the count of symlinks.
     /// </summary>
     public int Count { get; set; }
+}
+
+/// <summary>
+/// Request model for creating a directory.
+/// </summary>
+public class CreateDirectoryRequest
+{
+    /// <summary>
+    /// Gets or sets the directory path to create.
+    /// </summary>
+    [Required]
+    public string Directory { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response model for creating a directory.
+/// </summary>
+public class CreateDirectoryResponse
+{
+    /// <summary>
+    /// Gets or sets a value indicating whether the operation was successful.
+    /// </summary>
+    public bool Success { get; set; }
+
+    /// <summary>
+    /// Gets or sets the directory path that was created.
+    /// </summary>
+    public string Directory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the directory was newly created.
+    /// </summary>
+    public bool Created { get; set; }
+
+    /// <summary>
+    /// Gets or sets a message describing the result.
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request model for removing a directory.
+/// </summary>
+public class RemoveDirectoryRequest
+{
+    /// <summary>
+    /// Gets or sets the directory path to remove.
+    /// </summary>
+    [Required]
+    public string Directory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to force removal even if directory is not empty.
+    /// </summary>
+    public bool Force { get; set; }
+}
+
+/// <summary>
+/// Response model for removing a directory.
+/// </summary>
+public class RemoveDirectoryResponse
+{
+    /// <summary>
+    /// Gets or sets a value indicating whether the operation was successful.
+    /// </summary>
+    public bool Success { get; set; }
+
+    /// <summary>
+    /// Gets or sets the directory path that was removed.
+    /// </summary>
+    public string Directory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a message describing the result.
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
 }
 
 #endregion

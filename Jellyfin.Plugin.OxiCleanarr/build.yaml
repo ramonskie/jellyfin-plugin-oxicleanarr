@@ -1,7 +1,7 @@
 ---
 name: "OxiCleanarr Bridge"
 guid: "a8c0f8e4-7d3c-4b5a-9e2f-1a2b3c4d5e6f"
-version: "3.1.1"
+version: "3.2.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "OxiClean for your media library - cleans up those tough symlink stains!"
@@ -9,6 +9,13 @@ description: "Jellyfin plugin for OxiCleanarr integration. Manages symlinks via 
 category: "General"
 owner: "ramonskie"
 changelog: |
+  Version 3.2.0 - Add Directory Management API
+  - Add POST /api/oxicleanarr/directories/create endpoint for explicit directory creation
+  - Add DELETE /api/oxicleanarr/directories/remove endpoint for directory removal
+  - Directory creation still auto-falls back during symlink creation (existing behavior preserved)
+  - Allows OxiCleanarr to explicitly manage directory lifecycle when needed
+  - Improved documentation with new directory management endpoints
+  
   Version 3.1.1 - Make status endpoint publicly accessible
   - Status endpoint (/api/oxicleanarr/status) no longer requires authentication
   - Allows health checks and version queries without admin credentials

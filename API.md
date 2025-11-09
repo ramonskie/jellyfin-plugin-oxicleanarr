@@ -11,6 +11,7 @@ The Jellyfin OxiCleanarr Bridge Plugin provides a minimal, focused API for manag
 - ✅ Create symlinks at specified locations
 - ✅ Remove symlinks
 - ✅ List symlinks in specified directories
+- ✅ Explicitly manage directories (optional - directories auto-created as fallback)
 - ✅ Health check
 
 **The plugin does NOT:**
@@ -225,6 +226,114 @@ curl "http://localhost:8096/api/oxicleanarr/symlinks/list?directory=/data/leavin
 
 ---
 
+### POST /api/oxicleanarr/directories/create
+
+Create a directory explicitly.
+
+**Authentication:** Required
+
+**Request Body:**
+```json
+{
+  "directory": "/data/leaving-soon"
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Directory": "/data/leaving-soon",
+  "Created": true,
+  "Message": "Directory created successfully"
+}
+```
+
+**Response Codes:**
+- `200 OK` - Directory created or already exists
+- `400 Bad Request` - Invalid request (directory path missing)
+- `401 Unauthorized` - Authentication required
+- `500 Internal Server Error` - Failed to create directory
+
+**Example:**
+```bash
+curl -X POST http://localhost:8096/api/oxicleanarr/directories/create \
+  -H "Content-Type: application/json" \
+  -H "X-Emby-Token: your-token" \
+  -d '{
+    "directory": "/data/leaving-soon"
+  }'
+```
+
+**Notes:**
+- **directory** parameter is required - full path to directory to create
+- If directory already exists, returns success with `Created: false`
+- Parent directories are created automatically if needed
+- This endpoint is optional - directories are auto-created during symlink creation as a fallback
+- Useful for OxiCleanarr to pre-create directories before adding symlinks
+
+---
+
+### DELETE /api/oxicleanarr/directories/remove
+
+Remove a directory.
+
+**Authentication:** Required
+
+**Request Body:**
+```json
+{
+  "directory": "/data/leaving-soon",
+  "force": false
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Directory": "/data/leaving-soon",
+  "Message": "Directory removed successfully"
+}
+```
+
+**Response Codes:**
+- `200 OK` - Directory removed successfully
+- `400 Bad Request` - Invalid request or directory not empty (when force=false)
+- `401 Unauthorized` - Authentication required
+- `500 Internal Server Error` - Failed to remove directory
+
+**Example:**
+```bash
+# Remove empty directory
+curl -X DELETE http://localhost:8096/api/oxicleanarr/directories/remove \
+  -H "Content-Type: application/json" \
+  -H "X-Emby-Token: your-token" \
+  -d '{
+    "directory": "/data/leaving-soon",
+    "force": false
+  }'
+
+# Force remove non-empty directory
+curl -X DELETE http://localhost:8096/api/oxicleanarr/directories/remove \
+  -H "Content-Type: application/json" \
+  -H "X-Emby-Token: your-token" \
+  -d '{
+    "directory": "/data/leaving-soon",
+    "force": true
+  }'
+```
+
+**Notes:**
+- **directory** parameter is required - full path to directory to remove
+- **force** parameter is optional (defaults to false)
+  - `force: false` - Only removes empty directories (safer)
+  - `force: true` - Removes directory and all contents recursively
+- If directory doesn't exist, returns success (idempotent)
+- Use with caution when `force: true` - all contents will be permanently deleted
+
+---
+
 ## Configuration
 
 **The plugin requires NO configuration!** It is completely stateless.
@@ -238,7 +347,15 @@ All paths are provided via API requests. OxiCleanarr is in complete control of w
 ### Recommended Workflow
 
 ```python
-# 1. Create symlink via plugin
+# 1. (Optional) Explicitly create directory via plugin
+# Note: Directories are auto-created during symlink creation as fallback
+response = requests.post(
+    "http://jellyfin:8096/api/oxicleanarr/directories/create",
+    headers={"X-Emby-Token": api_key},
+    json={"directory": "/data/leaving-soon"}
+)
+
+# 2. Create symlink via plugin
 response = requests.post(
     "http://jellyfin:8096/api/oxicleanarr/symlinks/add",
     headers={"X-Emby-Token": api_key},
@@ -251,11 +368,11 @@ response = requests.post(
 if not response.json()["Success"]:
     handle_error()
 
-# 2. Ensure library exists (OxiCleanarr's responsibility)
+# 3. Ensure library exists (OxiCleanarr's responsibility)
 if not library_exists("Leaving Soon"):
     create_library("Leaving Soon", "/data/leaving-soon")
 
-# 3. Trigger library scan (OxiCleanarr's responsibility)
+# 4. Trigger library scan (OxiCleanarr's responsibility)
 scan_library("Leaving Soon")
 ```
 
