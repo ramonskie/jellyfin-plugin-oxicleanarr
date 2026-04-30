@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 3.2.4)'
+        required: true
 
 permissions:
   contents: write
@@ -16,6 +20,20 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Resolve version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          # Strip 'v' prefix from tag
+          VERSION="${GITHUB_REF_NAME#v}"
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "Resolved version: $VERSION"
       
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -32,15 +50,10 @@ jobs:
       
     - name: Build plugin with JPRM
       run: |
-        # Extract version from tag (remove 'v' prefix)
-        VERSION="${GITHUB_REF_NAME#v}"
-        # Create artifacts directory
+        VERSION="${{ steps.version.outputs.version }}"
         mkdir -p ./artifacts
-        # Build plugin using JPRM (creates ZIP with metadata)
-        # JPRM outputs the filename to stdout
         PLUGIN_FILE=$(jprm plugin build Jellyfin.Plugin.OxiCleanarr --output ./artifacts --version "$VERSION")
         echo "Built plugin: $PLUGIN_FILE"
-        # Move to expected location
         mv "$PLUGIN_FILE" ./jellyfin-plugin-oxicleanarr.zip
         
     - name: Generate checksums
@@ -107,15 +120,18 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Commit and push updated manifest
+    - name: Update manifest and push to main
       if: startsWith(github.ref, 'refs/tags/')
       run: |
+        VERSION="${{ steps.version.outputs.version }}"
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        # Always work on the latest main, not the detached tag HEAD
         git fetch origin main
         git checkout main
-        # Re-run jprm on main in case manifest diverged
-        jprm repo add --plugin-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-oxicleanarr.zip . jellyfin-plugin-oxicleanarr.zip
+        jprm repo add \
+          --plugin-url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-oxicleanarr.zip" \
+          . jellyfin-plugin-oxicleanarr.zip
         git add manifest.json
         git diff --cached --quiet || git commit -m "Update manifest for release ${{ github.ref_name }}"
         git push origin main
