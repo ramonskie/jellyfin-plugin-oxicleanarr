@@ -107,20 +107,17 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Update manifest with JPRM
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        # Run JPRM to add this release to the manifest using the local ZIP file
-        # JPRM will read metadata from the ZIP and use the provided URL in the manifest
-        jprm repo add --plugin-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-oxicleanarr.zip . jellyfin-plugin-oxicleanarr.zip
-        
     - name: Commit and push updated manifest
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        git fetch origin main
+        git checkout main
+        # Re-run jprm on main in case manifest diverged
+        jprm repo add --plugin-url https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/jellyfin-plugin-oxicleanarr.zip . jellyfin-plugin-oxicleanarr.zip
         git add manifest.json
-        git commit -m "Update manifest for release ${{ github.ref_name }}"
-        git push origin HEAD:main
+        git diff --cached --quiet || git commit -m "Update manifest for release ${{ github.ref_name }}"
+        git push origin main
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
