@@ -38,6 +38,8 @@ public class SymlinkManager
             throw new ArgumentException("Directory path cannot be empty", nameof(directoryPath));
         }
 
+        ValidatePath(directoryPath, nameof(directoryPath));
+
         if (Directory.Exists(directoryPath))
         {
             _logger.LogDebug("Directory already exists: {Directory}", directoryPath);
@@ -60,6 +62,9 @@ public class SymlinkManager
     public Task<string> CreateSymlinkAsync(string sourcePath, string targetDirectory, CancellationToken cancellationToken = default)
     {
         _ = cancellationToken; // Reserved for future use
+        ValidatePath(sourcePath, nameof(sourcePath));
+        ValidatePath(targetDirectory, nameof(targetDirectory));
+
         if (!File.Exists(sourcePath))
         {
             throw new FileNotFoundException($"Source file not found: {sourcePath}");
@@ -99,12 +104,22 @@ public class SymlinkManager
     /// Removes a symlink.
     /// </summary>
     /// <param name="symlinkPath">The symlink path to remove.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the path exists but is not a symlink.</exception>
     public void RemoveSymlink(string symlinkPath)
     {
+        ValidatePath(symlinkPath, nameof(symlinkPath));
+
         if (!File.Exists(symlinkPath))
         {
             _logger.LogWarning("Symlink does not exist: {Path}", symlinkPath);
             return;
+        }
+
+        var fileInfo = new FileInfo(symlinkPath);
+        if (!fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            _logger.LogError("Refusing to delete {Path}: not a symlink", symlinkPath);
+            throw new InvalidOperationException($"Path is not a symlink: {symlinkPath}");
         }
 
         _logger.LogInformation("Removing symlink: {Path}", symlinkPath);
@@ -124,6 +139,8 @@ public class SymlinkManager
         {
             throw new ArgumentException("Directory path cannot be empty", nameof(directoryPath));
         }
+
+        ValidatePath(directoryPath, nameof(directoryPath));
 
         if (!Directory.Exists(directoryPath))
         {
@@ -183,6 +200,8 @@ public class SymlinkManager
     /// <returns>An array of symlink information including path and target.</returns>
     public SymlinkInfo[] ListSymlinks(string directory)
     {
+        ValidatePath(directory, nameof(directory));
+
         if (!Directory.Exists(directory))
         {
             _logger.LogWarning("Directory does not exist: {Directory}", directory);
@@ -218,6 +237,32 @@ public class SymlinkManager
 
         _logger.LogInformation("Found {Count} symlink(s) in directory: {Directory}", symlinks.Count, directory);
         return symlinks.ToArray();
+    }
+
+    /// <summary>
+    /// Validates that a path does not contain traversal sequences and resolves to an absolute path.
+    /// Throws <see cref="ArgumentException"/> for null/empty input and
+    /// <see cref="UnauthorizedAccessException"/> for traversal attempts.
+    /// </summary>
+    private static void ValidatePath(string path, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be empty", paramName);
+        }
+
+        // Reject any path containing traversal sequences before resolving
+        if (path.Contains("..", StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException($"Path traversal detected in {paramName}: {path}");
+        }
+
+        // Resolve to absolute path and verify it didn't escape via symlink tricks
+        var fullPath = Path.GetFullPath(path);
+        if (fullPath.Contains("..", StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException($"Path traversal detected after resolution in {paramName}: {path}");
+        }
     }
 }
 

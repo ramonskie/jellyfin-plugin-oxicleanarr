@@ -264,7 +264,7 @@ public class OxiCleanarrController : ControllerBase
     }
 
     /// <summary>
-    /// Gets plugin status and version.
+    /// Gets plugin status.
     /// </summary>
     /// <returns>Plugin status.</returns>
     [HttpGet("status")]
@@ -272,10 +272,7 @@ public class OxiCleanarrController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<StatusResponse> GetStatus()
     {
-        return Ok(new StatusResponse
-        {
-            Version = Plugin.Instance?.Version.ToString() ?? "unknown"
-        });
+        return Ok(new StatusResponse { Status = "ok" });
     }
 }
 
@@ -376,9 +373,9 @@ public class RemoveItemsResponse
 public class StatusResponse
 {
     /// <summary>
-    /// Gets or sets the plugin version.
+    /// Gets or sets the status string.
     /// </summary>
-    public string Version { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
 }
 
 /// <summary>
