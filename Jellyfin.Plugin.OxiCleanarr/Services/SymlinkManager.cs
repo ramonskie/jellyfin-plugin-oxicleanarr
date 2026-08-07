@@ -65,7 +65,7 @@ public class SymlinkManager
         ValidatePath(sourcePath, nameof(sourcePath));
         ValidatePath(targetDirectory, nameof(targetDirectory));
 
-        if (!File.Exists(sourcePath))
+        if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
         {
             throw new FileNotFoundException($"Source file not found: {sourcePath}");
         }
@@ -77,10 +77,17 @@ public class SymlinkManager
         var symlinkPath = Path.Combine(targetDirectory, fileName);
 
         // If symlink already exists, remove it
-        if (File.Exists(symlinkPath))
+        if (File.Exists(symlinkPath) || Directory.Exists(symlinkPath))
         {
             _logger.LogInformation("Removing existing symlink: {Path}", symlinkPath);
-            File.Delete(symlinkPath);
+            if (Directory.Exists(symlinkPath) && !File.Exists(symlinkPath))
+            {
+                Directory.Delete(symlinkPath);
+            }
+            else
+            {
+                File.Delete(symlinkPath);
+            }
         }
 
         _logger.LogInformation("Creating symlink: {Source} -> {Target}", sourcePath, symlinkPath);
@@ -109,21 +116,32 @@ public class SymlinkManager
     {
         ValidatePath(symlinkPath, nameof(symlinkPath));
 
-        if (!File.Exists(symlinkPath))
+        if (!File.Exists(symlinkPath) && !Directory.Exists(symlinkPath))
         {
             _logger.LogWarning("Symlink does not exist: {Path}", symlinkPath);
             return;
         }
 
         var fileInfo = new FileInfo(symlinkPath);
-        if (!fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        var dirInfo = new DirectoryInfo(symlinkPath);
+        var isReparsePoint = fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint)
+            || dirInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
+        if (!isReparsePoint)
         {
             _logger.LogError("Refusing to delete {Path}: not a symlink", symlinkPath);
             throw new InvalidOperationException($"Path is not a symlink: {symlinkPath}");
         }
 
         _logger.LogInformation("Removing symlink: {Path}", symlinkPath);
-        File.Delete(symlinkPath);
+        if (Directory.Exists(symlinkPath) && !File.Exists(symlinkPath))
+        {
+            Directory.Delete(symlinkPath);
+        }
+        else
+        {
+            File.Delete(symlinkPath);
+        }
+
         _logger.LogInformation("Successfully removed symlink: {Path}", symlinkPath);
     }
 
