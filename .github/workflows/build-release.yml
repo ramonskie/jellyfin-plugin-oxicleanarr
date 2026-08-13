@@ -34,6 +34,23 @@ jobs:
         fi
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "Resolved version: $VERSION"
+        
+    - name: Sync assembly version with release version
+      run: |
+        # Ensure the DLL assembly version matches the release version so the
+        # manifest version (meta.json) and assembly version never drift.
+        # Jellyfin compares the assembly version against the manifest version
+        # when uninstalling/updating; a mismatch breaks those flows.
+        VERSION="${{ steps.version.outputs.version }}"
+        # Normalize to 4-part version (3.2.5 -> 3.2.5.0) for .NET assembly attributes
+        if [[ "$VERSION" != *.*.*.* ]]; then
+          VERSION="${VERSION}.0"
+        fi
+        sed -i "s|<Version>[^<]*</Version>|<Version>${VERSION}</Version>|" Directory.Build.props
+        sed -i "s|<AssemblyVersion>[^<]*</AssemblyVersion>|<AssemblyVersion>${VERSION}</AssemblyVersion>|" Directory.Build.props
+        sed -i "s|<FileVersion>[^<]*</FileVersion>|<FileVersion>${VERSION}</FileVersion>|" Directory.Build.props
+        echo "Synced assembly version to ${VERSION}"
+        cat Directory.Build.props
       
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
